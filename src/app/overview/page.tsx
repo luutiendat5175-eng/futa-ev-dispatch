@@ -1,0 +1,1 @@
+import {AppShell} from '@/components/layout/AppShell';import {OperationsSummary} from '@/features/dispatch-tasks/OperationsSummary';export default function OverviewPage(){return <AppShell><main className="overview-page"><OperationsSummary/></main></AppShell>}
