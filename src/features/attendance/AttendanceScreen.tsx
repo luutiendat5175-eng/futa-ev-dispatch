@@ -1,0 +1,28 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { authFetch } from '@/infrastructure/auth/authFetch';
+import { prepareEvidencePhotos } from '@/features/evidence/prepareEvidencePhotos';
+
+type Session = { id: string; profile_id: string; checked_in_at: string; checked_out_at: string | null; profiles: { full_name: string; employee_code: string; role: string } | null };
+const time = (value: string) => new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
+function exportCsv(sessions: Session[]) { const rows = [['Nhân viên', 'MSNV', 'Vào ca', 'Ra ca'], ...sessions.map((session) => [session.profiles?.full_name ?? '', session.profiles?.employee_code ?? '', time(session.checked_in_at), session.checked_out_at ? time(session.checked_out_at) : 'Đang làm việc'])]; const csv = rows.map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(',')).join('\r\n'); const url = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `cham-cong-${new Date().toISOString().slice(0, 10)}.csv`; anchor.click(); URL.revokeObjectURL(url); }
+
+export function AttendanceScreen() {
+  const [sessions, setSessions] = useState<Session[]>([]); const [actor, setActor] = useState(''); const [actorName, setActorName] = useState(''); const [q, setQ] = useState(''); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false); const [photos, setPhotos] = useState<File[]>([]); const cameraInput = useRef<HTMLInputElement>(null); const uploadInput = useRef<HTMLInputElement>(null);
+  const load = () => authFetch(`/api/v1/attendance${q ? `?q=${encodeURIComponent(q)}` : ''}`).then((response) => response.json()).then((data) => { setSessions(data.sessions ?? []); setActor(data.actorId ?? ''); setActorName(data.actorName ?? ''); });
+  useEffect(() => { void load(); }, [q]); const active = sessions.find((session) => session.profile_id === actor && !session.checked_out_at);
+  const submit = async (action: 'in' | 'out') => {
+    if (!photos.length) { setNotice('Hãy chọn ít nhất một ảnh trước khi chấm công.'); return; }
+    if (!navigator.geolocation) { setNotice('Thiết bị không hỗ trợ GPS.'); return; }
+    setBusy(true); setNotice('');
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 }));
+      setNotice('Đang nén và đóng dấu ảnh…'); const prepared = await prepareEvidencePhotos(photos, { personName: actorName || 'Nhân viên', subject: action === 'in' ? 'Chấm công vào ca' : 'Chấm công ra ca', latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy });
+      const body = new FormData(); body.set('action', action); body.set('latitude', String(position.coords.latitude)); body.set('longitude', String(position.coords.longitude)); prepared.forEach((photo) => body.append('photos', photo)); const response = await authFetch('/api/v1/attendance', { method: 'POST', body }); const data = await response.json(); if (!response.ok) throw new Error(data.error?.message);
+      setPhotos([]); setNotice(action === 'in' ? 'Đã vào ca.' : 'Đã ra ca.'); void load();
+    } catch (error) { setNotice(error instanceof Error ? error.message : 'Không thể chấm công.'); } finally { setBusy(false); }
+  };
+  const addPhotos = (selected: FileList | null) => { if (selected?.length) setPhotos((old) => [...old, ...Array.from(selected)]); };
+  return <main className="attendance-page"><header><div><h1>Chấm công</h1><p>Vào/ra ca bắt buộc có ảnh, thời gian và định vị GPS.</p></div><button className="primary" disabled={busy} onClick={() => void submit(active ? 'out' : 'in')}>{busy ? 'Đang ghi nhận…' : active ? 'Ra ca' : 'Vào ca'}</button></header><div className="attendance-tools"><input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Tìm tên hoặc MSNV…"/><button onClick={() => exportCsv(sessions)}>Xuất dữ liệu</button></div><div className="attendance-photo"><input ref={cameraInput} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => addPhotos(event.target.files)}/><input ref={uploadInput} className="visually-hidden" type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => addPhotos(event.target.files)}/><div className="photo-actions"><button type="button" onClick={() => cameraInput.current?.click()}>Chụp ảnh</button><button type="button" onClick={() => uploadInput.current?.click()}>Chọn / tải ảnh</button></div><span>{photos.length ? `Đã chọn ${photos.length} ảnh` : 'Chọn hoặc tải ảnh chấm công (ít nhất 1)'}</span></div>{notice && <p className="attendance-notice">{notice}</p>}<section className="attendance-summary"><strong>{active ? 'Đang trong ca' : 'Chưa vào ca'}</strong><span>{active ? `Bắt đầu ${time(active.checked_in_at)}` : 'Chọn ảnh, bật GPS rồi bấm “Vào ca”.'}</span></section><section className="attendance-list"><h2>Lịch sử chấm công</h2>{sessions.map((session) => <article key={session.id}><strong>{session.profiles?.full_name ?? '—'} <small>· {session.profiles?.employee_code}</small></strong><span>Vào: {time(session.checked_in_at)}</span><span>{session.checked_out_at ? `Ra: ${time(session.checked_out_at)}` : 'Đang làm việc'}</span></article>)}{!sessions.length && <p>Chưa có phiên làm việc.</p>}</section></main>;
+}
