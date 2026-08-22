@@ -9,23 +9,6 @@ export async function GET() {
     const actor = await getCurrentUserContext();
     const db = createServiceRoleClient();
 
-    // Refresh time-based violations before reading them. Previously this API
-    // only selected existing rows, so an idle dashboard never created overdue
-    // alerts even though it polled this endpoint every 30 seconds.
-    const { data: plan, error: planError } = await db
-      .from('daily_plans')
-      .select('id')
-      .order('service_date', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (planError) throw planError;
-    if (plan) {
-      const { error: refreshError } = await db.rpc('refresh_violation_cases', {
-        p_daily_plan_id: plan.id,
-      });
-      if (refreshError) throw refreshError;
-    }
-
     let permitted: string[] | null = null;
     if (actor.role === 'lai_xe' || actor.role === 'dieu_phoi') {
       const { data, error } = await db.from('employee_station_base_assignments').select('charging_station_id').eq('profile_id', actor.userId).eq('is_active', true);
@@ -33,7 +16,7 @@ export async function GET() {
       permitted = (data ?? []).map((row: { charging_station_id: string }) => row.charging_station_id);
     }
 
-    let query = db.from('violation_dashboard_alerts').select('id,created_at,charging_station_id,violation_cases(id,violation_type,detected_at,resolved_at,recurrence_count,message,profiles(full_name,employee_code),vehicles(license_plate),charging_stations(name))').eq('is_acknowledged', false).order('created_at', { ascending: false });
+    let query = db.from('violation_dashboard_alerts').select('id,created_at,charging_station_id,violation_cases!inner(id,violation_type,detected_at,resolved_at,recurrence_count,message,profiles(full_name,employee_code),vehicles(license_plate),charging_stations(name))').eq('is_acknowledged', false).eq('violation_cases.violation_type', 'priority_window').order('created_at', { ascending: false });
     if (permitted) query = permitted.length ? query.in('charging_station_id', permitted) : query.in('charging_station_id', ['00000000-0000-0000-0000-000000000000']);
     const { data, error } = await query;
     if (error) throw error;
@@ -63,5 +46,4 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: { message: caught instanceof Error ? caught.message : 'Không thể tắt cảnh báo.' } }, { status: 400 });
   }
 }
-
 
