@@ -37,7 +37,7 @@ export function StreetOperationsMap({ depots, stations, staffLocations }: { depo
     map.current = window.L.map(element.current).setView([all[0].x, all[0].y], 11);
     // The standard OSM tile hostname is not resolvable on every production
     // network. CARTO's CDN serves the same OSM street data with CORS enabled.
-    window.L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       attribution: '© OpenStreetMap contributors © CARTO',
     }).addTo(map.current);
     layers.current = window.L.layerGroup(); map.current.addLayer(layers.current); setReady(true);
@@ -71,3 +71,5 @@ export function StreetOperationsMap({ depots, stations, staffLocations }: { depo
   useEffect(() => () => { map.current?.remove(); map.current = null; }, []);
   return <div ref={element} className="leaflet-map" />;
 }
+
+
