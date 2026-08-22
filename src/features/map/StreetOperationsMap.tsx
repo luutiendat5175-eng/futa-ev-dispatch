@@ -15,7 +15,7 @@ const loadLeaflet = () => new Promise<void>((resolve, reject) => {
   const script = document.createElement('script'); script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; script.onload = () => resolve(); script.onerror = () => reject(new Error('Leaflet load failed')); document.head.append(script);
 });
 const clock = (value: string) => new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
-// Leaflet's base polyline has no offset feature.  Shift each direction to an
+// Leaflet's base polyline has no offset feature. Shift each direction to an
 // opposite side of the depot-to-station axis so both are individually clickable.
 function parallelPath(depot: YardLocation, station: YardLocation, side: 1 | -1, outbound: boolean): [number, number][] {
   const latitudeDelta = station.x - depot.x; const longitudeDelta = station.y - depot.y;
@@ -35,7 +35,11 @@ export function StreetOperationsMap({ depots, stations, staffLocations }: { depo
     const all = [...depots, ...stations];
     if (!all.length) { element.current.textContent = 'Chưa có bãi/trạm trong phạm vi được phân công.'; return; }
     map.current = window.L.map(element.current).setView([all[0].x, all[0].y], 11);
-    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map.current);
+    // The standard OSM tile hostname is not resolvable on every production
+    // network. CARTO's CDN serves the same OSM street data with CORS enabled.
+    window.L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap contributors © CARTO',
+    }).addTo(map.current);
     layers.current = window.L.layerGroup(); map.current.addLayer(layers.current); setReady(true);
   }).catch(() => { if (element.current) element.current.textContent = 'Không tải được bản đồ đường phố.'; }); return () => { cancelled = true; }; }, [depots, stations]);
 
