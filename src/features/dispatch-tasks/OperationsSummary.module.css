@@ -1,0 +1,1 @@
+.metric{display:flex;align-items:baseline;justify-content:space-between;gap:24px;min-width:0}.headline{font-weight:700;white-space:nowrap}.types{display:flex;justify-content:flex-end;gap:18px;flex-wrap:wrap;color:#0f766e}.types b{white-space:nowrap}.empty{min-height:1em}@media(max-width:760px){.metric{display:block}.types{justify-content:flex-start;margin-top:8px;gap:8px 16px}}
