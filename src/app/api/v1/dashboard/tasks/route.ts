@@ -13,7 +13,7 @@ export async function GET() {
   if (planError) return NextResponse.json({ error: { code: 'PLAN_QUERY_FAILED', message: planError.message } }, { status: 500 });
   if (!plan) return NextResponse.json({ tasks: [], plan: null, scope: { mode: 'all', stationIds: [] } });
   const { data: tasks, error } = await db.from('dispatch_tasks')
-    .select('*, assigned_profile:profiles!dispatch_tasks_assigned_profile_id_fkey(full_name,employee_code), vehicles(license_plate), daily_vehicle_schedules(roster_sequence,earliest_departure_at, plan_route_ends(route_code,route_end_name))')
+    .select('*, assigned_profile:profiles!dispatch_tasks_assigned_profile_id_fkey(full_name,employee_code), vehicles(license_plate,vehicle_type_code), charging_stations(name), daily_vehicle_schedules(roster_sequence,earliest_departure_at, plan_route_ends(route_code,route_end_name))')
     .eq('daily_plan_id', plan.id)
     .neq('status', 'qua_han')
     .order('priority_lct_at', { ascending: true, nullsFirst: false });
@@ -29,3 +29,4 @@ export async function GET() {
     notice: permitted.size ? null : 'Bạn chưa được phân công trạm nào. Liên hệ admin để được cấp trạm làm việc.',
   });
 }
+
