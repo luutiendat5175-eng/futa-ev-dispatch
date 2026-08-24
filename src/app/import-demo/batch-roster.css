@@ -1,0 +1,55 @@
+.batch-import-page {
+  padding-top: 0 !important;
+}
+.batch-roster-card {
+  border: 2px solid #0d9488;
+}
+.batch-file-list,
+.batch-preview {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #dbe4ef;
+  border-radius: 10px;
+}
+.batch-file-list h3,
+.batch-preview h3 {
+  margin: 0 0 10px;
+}
+.batch-file-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-top: 1px solid #edf2f7;
+}
+.batch-file-list button {
+  border: 0;
+  background: transparent;
+  color: #dc2626;
+  font-size: 20px;
+}
+.batch-preview-head,
+.batch-preview > div {
+  display: grid;
+  grid-template-columns: 2fr 0.6fr 0.6fr 0.6fr 0.8fr;
+  gap: 10px;
+  padding: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.batch-preview strong {
+  color: #047857;
+}
+.batch-commit {
+  display: block;
+  margin: 16px 0 0 auto;
+  padding: 12px 18px;
+}
+@media (max-width: 720px) {
+  .batch-preview {
+    overflow: auto;
+  }
+  .batch-preview-head,
+  .batch-preview > div {
+    min-width: 650px;
+  }
+}
