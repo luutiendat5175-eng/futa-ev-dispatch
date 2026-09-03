@@ -4,7 +4,7 @@ import { getCurrentUserContext, UnauthenticatedError } from '@/infrastructure/au
 
 type ScheduleRow = {
   id: string; earliest_departure_at: string; lct_at: string; roster_sequence: number | null; plan_route_end_id: string;
-  plan_route_ends: { route_code: string; route_name: string; route_end_name: string; charging_station_id: string; charging_stations: { name: string } | null } | null;
+  plan_route_ends: { route_code: string; route_name: string; route_end_name: string; charging_station_id: string; overnight_depot_id: string | null; depots: { name: string } | null; charging_stations: { name: string } | null } | null;
   vehicles: { license_plate: string } | null;
 };
 type TaskRow = { daily_vehicle_schedule_id: string | null; status: string };
@@ -19,7 +19,7 @@ export async function GET() {
   const { data: plan } = await db.from('daily_plans').select('id').order('service_date', { ascending: false }).limit(1).maybeSingle();
   if (!plan) return NextResponse.json({ routes: [] });
   const [{ data: schedules, error }, { data: tasks }] = await Promise.all([
-    db.from('daily_vehicle_schedules').select('id,earliest_departure_at,lct_at,roster_sequence,plan_route_end_id,plan_route_ends(route_code,route_name,route_end_name,charging_station_id,charging_stations(name)),vehicles(license_plate)').eq('daily_plan_id', plan.id),
+    db.from('daily_vehicle_schedules').select('id,earliest_departure_at,lct_at,roster_sequence,plan_route_end_id,plan_route_ends(route_code,route_name,route_end_name,charging_station_id,overnight_depot_id,depots(name),charging_stations(name)),vehicles(license_plate)').eq('daily_plan_id', plan.id),
     db.from('dispatch_tasks').select('daily_vehicle_schedule_id,status').eq('daily_plan_id', plan.id),
   ]);
   if (error) return NextResponse.json({ error: { code: 'QUERY_FAILED', message: error.message } }, { status: 500 });
@@ -58,7 +58,7 @@ export async function GET() {
         : status === 'nhan_tram_sac' ? 'Đang trả xe'
           : status === 'giao_tram_sac' || status === 'doi_sac' ? 'Trạm sạc'
             : 'Chưa nhận';
-    end.rows.push({ scheduleId: row.id, sequence: row.roster_sequence, departureAt: row.earliest_departure_at, licensePlate: row.vehicles?.license_plate ?? '—', priority: priority.get(row.id), chargingStation: endInfo.charging_stations?.name ?? '—', location });
+    end.rows.push({ depotId: endInfo.overnight_depot_id, depotName: endInfo.depots?.name ?? "Bãi chưa xác định", scheduleId: row.id, sequence: row.roster_sequence, departureAt: row.earliest_departure_at, licensePlate: row.vehicles?.license_plate ?? '—', priority: priority.get(row.id), chargingStation: endInfo.charging_stations?.name ?? '—', location });
   }
   const routeNumber = (code: string) => Number(code.replace(/\D/g, '')) || Number.MAX_SAFE_INTEGER;
   return NextResponse.json({ routes: [...groups.values()].sort((a, b) => routeNumber(a.routeCode) - routeNumber(b.routeCode) || a.routeCode.localeCompare(b.routeCode)).map((route) => ({ ...route, ends: [...route.ends.values()].map((end) => {

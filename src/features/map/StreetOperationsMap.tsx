@@ -16,6 +16,7 @@ type Staff = {
 type LeafletMap = {
   setView: (center: [number, number], zoom: number) => LeafletMap;
   remove: () => void;
+  invalidateSize: () => void;
   addLayer: (layer: unknown) => void;
 };
 type LeafletLayerGroup = { clearLayers: () => void };
@@ -24,7 +25,7 @@ type LeafletApi = {
   tileLayer: (
     url: string,
     options: Record<string, string>,
-  ) => { addTo: (map: LeafletMap) => void };
+  ) => { addTo: (map: LeafletMap) => void; on: (event: string, callback: () => void) => void; setUrl: (url: string) => void };
   layerGroup: () => LeafletLayerGroup;
   circleMarker: (
     point: [number, number],
@@ -102,6 +103,7 @@ export function StreetOperationsMap({
   const map = useRef<LeafletMap | null>(null);
   const layers = useRef<LeafletLayerGroup | null>(null);
   const [ready, setReady] = useState(false);
+  const [tileMessage,setTileMessage]=useState("");
 
   // Mount once. Later updates redraw data only, preserving the operator's zoom,
   // pan and visible viewport instead of returning to the default extent.
@@ -116,15 +118,21 @@ export function StreetOperationsMap({
             "Chưa có bãi/trạm trong phạm vi được phân công.";
           return;
         }
+        element.current.textContent = "";
         map.current = window.L.map(element.current).setView(
           [all[0].x, all[0].y],
           11,
         );
-        // The standard OSM tile hostname is not resolvable on every production
-        // network. CARTO's CDN serves the same OSM street data with CORS enabled.
-        window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: "© OpenStreetMap contributors",
-        }).addTo(map.current);
+        const tiles=window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        });
+        let usingProxy=false;
+        tiles.on("tileerror",()=>{
+          if(!usingProxy){usingProxy=true;setTileMessage("Đường tải trực tiếp gặp lỗi. Đang thử qua máy chủ ứng dụng…");tiles.setUrl("/api/v1/map/tiles/{z}/{x}/{y}");}
+          else setTileMessage("Không tải được nền bản đồ. Các điểm bãi/trạm vẫn được hiển thị. Hãy kiểm tra kết nối mạng hoặc thử tải lại.");
+        });
+        tiles.on("tileload",()=>setTileMessage(""));
+        tiles.addTo(map.current);
         layers.current = window.L.layerGroup();
         map.current.addLayer(layers.current);
         setReady(true);
@@ -197,6 +205,8 @@ export function StreetOperationsMap({
     }
   }, [depots, stations, staffLocations, ready]);
 
+  useEffect(()=>{if(!ready||!element.current)return;const observer=new ResizeObserver(()=>map.current?.invalidateSize());observer.observe(element.current);return()=>observer.disconnect()},[ready]);
+
   useEffect(
     () => () => {
       map.current?.remove();
@@ -204,5 +214,5 @@ export function StreetOperationsMap({
     },
     [],
   );
-  return <div ref={element} className="leaflet-map" />;
+  return <div><div ref={element} className="leaflet-map" />{tileMessage&&<p role="status" style={{color:"#b45309",margin:"8px 0"}}>{tileMessage}</p>}</div>;
 }
