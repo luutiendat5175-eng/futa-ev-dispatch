@@ -214,5 +214,5 @@ export function StreetOperationsMap({
     },
     [],
   );
-  return <div><div ref={element} className="leaflet-map" />{tileMessage&&<p role="status" style={{color:"#b45309",margin:"8px 0"}}>{tileMessage}</p>}</div>;
+  return <><div ref={element} className="leaflet-map" style={{minHeight:290}} />{tileMessage&&<p role="status" style={{color:"#b45309",margin:"8px 0"}}>{tileMessage}</p>}</>;
 }

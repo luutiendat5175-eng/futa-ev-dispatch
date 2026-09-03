@@ -1,0 +1,7 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),ts=require('typescript');
+const file=path.resolve('src/features/dispatch-tasks/rosterDepotOptions.ts'),mod=new Module(file,module);mod.paths=Module._nodeModulePaths(path.dirname(file));mod._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,file);
+const {rosterDepotOptions}=mod.exports;
+const rows=[{depotId:'qt',depotName:'Quang Trung',chargingStation:'An Phú Đông'},{depotId:'dm',depotName:'Đỗ Mười',chargingStation:'An Phú Đông'},{depotId:'apd',depotName:'An Phú Đông',chargingStation:'An Phú Đông'},{depotId:'qt',depotName:'Quang Trung',chargingStation:'An Phú Đông'},{depotId:'lt',depotName:'Linh Trung',chargingStation:'Trạm khác'}];
+assert.deepEqual(rosterDepotOptions(rows,'An Phú Đông').map(x=>x.id).sort(),['apd','dm','qt']);assert.equal(rosterDepotOptions(rows,'').length,4);assert.equal(rosterDepotOptions(rows,'Không tồn tại').length,0);
+const source=fs.readFileSync('src/features/map/StreetOperationsMap.tsx','utf8');assert.match(source,/return <>\s*<div ref=\{element\}/);assert.match(source,/minHeight:290/);assert.doesNotMatch(source,/return <div><div ref=\{element\}/);
+console.log('PASS: station-dependent depot choices, deduplication, all-stations and map height guard');
