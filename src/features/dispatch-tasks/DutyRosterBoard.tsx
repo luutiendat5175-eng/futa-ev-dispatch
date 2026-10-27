@@ -28,7 +28,7 @@ const formatTime = (value: string) => new Intl.DateTimeFormat('vi-VN', {
 }).format(new Date(value));
 const locationClass = (location: string) => location === 'Đã sạc' ? 'roster-charged' : location === 'Chưa nhận' ? 'roster-waiting' : location === 'Đang về sạc' ? 'roster-outbound' : location === 'Đang trả xe' ? 'roster-returning' : '';
 
-export function DutyRosterBoard({ query }: { query: string }) {
+export function DutyRosterBoard({ query, view = 'roster' }: { query: string; view?: 'roster' | 'balance' }) {
   const [depotFilter, setDepotFilter] = useState<string[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [role, setRole] = useState('');
@@ -103,15 +103,15 @@ export function DutyRosterBoard({ query }: { query: string }) {
 
   return <section className="roster-panel">
     <div className="roster-heading">
-      <h2>Xem theo bảng tài</h2>
-      <p>Vàng: chưa nhận · Xanh lá: đã sạc · Xanh dương: đang về sạc · Cam: đang trả xe.</p>
+      <h2>{view === 'balance' ? 'Cân đối xe theo vị trí' : 'Xem theo bảng tài'}</h2>
+      <p>{view === 'balance' ? 'Theo trạng thái, trạm sạc và bãi đỗ gốc. Mở từng thẻ để xem BSX, tuyến và đầu bến.' : 'Vàng: chưa nhận · Xanh lá: đã sạc · Xanh dương: đang về sạc · Cam: đang trả xe.'}</p>
       {role === 'admin' && <div className="roster-filters">
         <label>Tuyến<select value={routeFilter} onChange={(event) => setRouteFilter(event.target.value)}><option value="">Tất cả tuyến</option>{routes.map((route) => <option key={route.routeCode} value={route.routeCode}>Tuyến {route.routeCode}</option>)}</select></label>
         <label>Trạm sạc<select value={stationFilter} onChange={(event) => { setStationFilter(event.target.value); setDepotFilter([]); setExpandedGroup(null); }}><option value="">Tất cả trạm</option>{stations.map((station) => <option key={station} value={station}>{station}</option>)}</select></label>
       </div>}
     </div>
     <DepotMultiFilter options={depots} selected={depotFilter} onChange={(ids) => { setDepotFilter(ids); setExpandedGroup(null); }} />
-    <section className={styles.balance} aria-labelledby="roster-balance-title">
+    {view === 'balance' && <section className={styles.balance} aria-labelledby="roster-balance-title">
       <div className={styles.balanceHeading}>
         <div><h3 id="roster-balance-title">Cân đối xe theo vị trí</h3><p>{stationFilter ? `Trạm ${stationFilter}` : 'Tất cả trạm trong phạm vi được cấp quyền'} · {detailRows.length} xe phù hợp</p></div>
         <button type="button" className={locationFilter === '' ? styles.active : ''} onClick={() => { setLocationFilter(''); setExpandedGroup(null); }}>Tất cả ({detailRows.length})</button>
@@ -130,11 +130,11 @@ export function DutyRosterBoard({ query }: { query: string }) {
         </article>)}
       </div>
       {!balanceGroups.length && !loading && <p className={styles.empty}>Không có xe phù hợp với bộ lọc hiện tại.</p>}
-    </section>
+    </section>}
     {error && <p className="dashboard-error">{error}</p>}
-    {loading ? <p>Đang tải Bảng tài…</p> : <div className="roster-scroll">
+    {view === 'roster' && (loading ? <p>Đang tải Bảng tài…</p> : <div className="roster-scroll">
       {filtered.map((route) => <section className="route-table" key={route.routeCode}><h3>Tuyến {route.routeCode}</h3>{route.ends.map((end, endIndex) => <div key={`${end.name}-${endIndex}`}><h4>{end.name}</h4><table><thead><tr><th>STT</th><th>Giờ XB</th><th>BSX</th><th>Ưu tiên</th><th>Trạm sạc</th><th>Vị trí hiện tại</th></tr></thead><tbody>{end.rows.map((row, index) => <tr key={row.scheduleId} className={locationClass(row.location)}><td>{row.sequence ?? index + 1}</td><td>{formatTime(row.departureAt)}</td><td>{row.licensePlate}</td><td>Ưu tiên {row.priority}</td><td>{row.chargingStation}</td><td>{row.location}</td></tr>)}</tbody></table></div>)}</section>)}
       {!filtered.length && <p>Không có xe phù hợp với bộ lọc.</p>}
-    </div>}
+    </div>)}
   </section>;
 }

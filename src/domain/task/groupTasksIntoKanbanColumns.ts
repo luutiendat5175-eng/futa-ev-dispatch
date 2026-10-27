@@ -1,5 +1,5 @@
 import type { TaskType } from './taskStateMachine';
-export interface KanbanTask { id: string; loaiTask: TaskType; trangThai: string; eta: string | null; priorityLctAt?: string | null; vehicleId: string | null; vehiclePlate?: string | null; routeCode?: string | null; departureAt?: string | null; sequence?: number | null; assignedUserId: string | null; }
+export interface KanbanTask { id: string; loaiTask: TaskType; trangThai: string; eta: string | null; priorityLctAt?: string | null; vehicleId: string | null; vehiclePlate?: string | null; routeCode?: string | null; departureAt?: string | null; sequence?: number | null; assignedUserId: string | null; movementMode?: 'di_doi' | 'dau_tram'; }
 export interface KanbanColumn { status: string; label: string; tasks: KanbanTask[]; }
 const MOVE_COLUMNS: [string, string][] = [['chua_sac','Chưa nhận'],['nhan_xe_dau_ben','Đã nhận'],['giao_tram_sac','Giao trạm sạc'],['nhan_tram_sac','Trả xe']];
 const AUX_COLUMNS: [string, string][] = [['moi','Mới'],['dang_xu_ly','Đang xử lý'],['hoan_thanh','Hoàn thành']];

@@ -7,6 +7,7 @@ export const SIDEBAR_MENU: SidebarMenuItem[] = [
   { href: '/dashboard', label: 'Điều phối', icon: '▣', requiredAction: null },
   { href: '/overview', label: 'Tổng quan', icon: '◈', requiredAction: null },
   { href: '/roster', label: 'Bảng tài', icon: '▤', requiredAction: null },
+  { href: '/vehicle-balance', label: 'Cân đối xe', icon: '◫', requiredAction: null },
   { href: '/task-history', label: 'Lịch sử task', icon: '◷', requiredAction: 'xem_lich_su_task' },
   { href: '/kpi', label: 'KPI', icon: '◉', requiredAction: 'xem_xuat_kpi' },
   { href: '/attendance', label: 'Chấm công', icon: '◫', requiredAction: 'cham_cong_hom_nay' },

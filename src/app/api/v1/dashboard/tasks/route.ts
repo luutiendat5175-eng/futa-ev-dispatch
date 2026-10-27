@@ -2,7 +2,15 @@ import { NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/infrastructure/supabase/server';
 import { getCurrentUserContext, UnauthenticatedError } from '@/infrastructure/auth/getCurrentUserContext';
 
-const TASK_SELECT = 'id,task_type,status,eta_at,priority_lct_at,vehicle_id,assigned_profile_id,from_depot_id,to_station_id,vehicles(license_plate,vehicle_type_code),charging_stations(name),daily_vehicle_schedules(roster_sequence,earliest_departure_at,plan_route_ends(route_code,route_end_name))';
+const TASK_SELECT = 'id,task_type,status,eta_at,priority_lct_at,vehicle_id,assigned_profile_id,from_depot_id,to_station_id,vehicles(license_plate,vehicle_type_code),depots(name,x,y),charging_stations(name,x,y),daily_vehicle_schedules(roster_sequence,earliest_departure_at,plan_route_ends(route_code,route_end_name))';
+const normalizePlace = (value: string | null | undefined) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').replace(/[^a-z0-9]/gi, '').toLowerCase();
+function dispatchMode(task: any) {
+  const depot = task.depots; const station = task.charging_stations;
+  if (!depot || !station) return 'di_doi';
+  const sameName = normalizePlace(depot.name) === normalizePlace(station.name);
+  const distanceSquared = (Number(depot.x) - Number(station.x)) ** 2 + (Number(depot.y) - Number(station.y)) ** 2;
+  return sameName || (Number.isFinite(distanceSquared) && distanceSquared <= 0.000004) ? 'dau_tram' : 'di_doi';
+}
 
 export async function GET() {
   let actor;
@@ -33,7 +41,7 @@ export async function GET() {
   if (error) return NextResponse.json({ error: { code: 'QUERY_FAILED', message: error.message } }, { status: 500 });
 
   return NextResponse.json({
-    tasks: tasks ?? [],
+    tasks: (tasks ?? []).map((task: any) => ({ ...task, movement_mode: task.task_type === 'di_chuyen' ? dispatchMode(task) : 'di_doi' })),
     plan: planResult.data,
     scope: { mode: restricted ? 'station' : 'all', stationIds },
     notice: restricted && !stationIds.length ? 'Bạn chưa được phân công trạm nào. Liên hệ admin để được cấp trạm làm việc.' : null,
