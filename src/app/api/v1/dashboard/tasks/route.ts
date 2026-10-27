@@ -2,31 +2,40 @@ import { NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/infrastructure/supabase/server';
 import { getCurrentUserContext, UnauthenticatedError } from '@/infrastructure/auth/getCurrentUserContext';
 
+const TASK_SELECT = 'id,task_type,status,eta_at,priority_lct_at,vehicle_id,assigned_profile_id,from_depot_id,to_station_id,vehicles(license_plate,vehicle_type_code),charging_stations(name),daily_vehicle_schedules(roster_sequence,earliest_departure_at,plan_route_ends(route_code,route_end_name))';
+
 export async function GET() {
   let actor;
-  try { actor = await getCurrentUserContext(); } catch (caught) {
+  try {
+    actor = await getCurrentUserContext();
+  } catch (caught) {
     if (caught instanceof UnauthenticatedError) return NextResponse.json({ error: { code: 'UNAUTHENTICATED', message: 'Bạn cần đăng nhập.' } }, { status: 401 });
     throw caught;
   }
   const db = createServiceRoleClient();
-  const { data: plan, error: planError } = await db.from('daily_plans').select('id,service_date').order('service_date', { ascending: false }).limit(1).maybeSingle();
-  if (planError) return NextResponse.json({ error: { code: 'PLAN_QUERY_FAILED', message: planError.message } }, { status: 500 });
-  if (!plan) return NextResponse.json({ tasks: [], plan: null, scope: { mode: 'all', stationIds: [] } });
-  const { data: tasks, error } = await db.from('dispatch_tasks')
-    .select('*, assigned_profile:profiles!dispatch_tasks_assigned_profile_id_fkey(full_name,employee_code), vehicles(license_plate,vehicle_type_code), charging_stations(name), daily_vehicle_schedules(roster_sequence,earliest_departure_at, plan_route_ends(route_code,route_end_name))')
-    .eq('daily_plan_id', plan.id)
-    .neq('status', 'qua_han')
-    .order('priority_lct_at', { ascending: true, nullsFirst: false });
+  const restricted = ['lai_xe', 'dieu_phoi'].includes(actor.role);
+  const [planResult, assignmentsResult] = await Promise.all([
+    db.from('daily_plans').select('id,service_date').order('service_date', { ascending: false }).limit(1).maybeSingle(),
+    restricted ? db.from('employee_station_base_assignments').select('charging_station_id').eq('profile_id', actor.userId).eq('is_active', true) : Promise.resolve({ data: [] as { charging_station_id: string }[], error: null }),
+  ]);
+  if (planResult.error) return NextResponse.json({ error: { code: 'PLAN_QUERY_FAILED', message: planResult.error.message } }, { status: 500 });
+  if (assignmentsResult.error) return NextResponse.json({ error: { code: 'ASSIGNMENT_QUERY_FAILED', message: assignmentsResult.error.message } }, { status: 500 });
+  if (!planResult.data) return NextResponse.json({ tasks: [], plan: null, scope: { mode: 'all', stationIds: [] } });
+
+  const stationIds = (assignmentsResult.data ?? []).map((row: { charging_station_id: string }) => row.charging_station_id);
+  let query = db.from('dispatch_tasks').select(TASK_SELECT).eq('daily_plan_id', planResult.data.id).neq('status', 'qua_han').order('priority_lct_at', { ascending: true, nullsFirst: false });
+  if (restricted) {
+    query = stationIds.length
+      ? query.or(`to_station_id.in.(${stationIds.join(',')}),assigned_profile_id.eq.${actor.userId}`)
+      : query.eq('assigned_profile_id', actor.userId);
+  }
+  const { data: tasks, error } = await query;
   if (error) return NextResponse.json({ error: { code: 'QUERY_FAILED', message: error.message } }, { status: 500 });
-  if (!['lai_xe', 'dieu_phoi'].includes(actor.role)) return NextResponse.json({ tasks: tasks ?? [], plan, scope: { mode: 'all', stationIds: [] } });
-  const { data: assignments } = await db.from('employee_station_base_assignments').select('charging_station_id').eq('profile_id', actor.userId).eq('is_active', true);
-  const permitted = new Set((assignments ?? []).map((row: { charging_station_id: string }) => row.charging_station_id));
-  const visible = (tasks ?? []).filter((task: { to_station_id: string | null; assigned_profile_id: string | null }) => Boolean((task.to_station_id && permitted.has(task.to_station_id)) || task.assigned_profile_id === actor.userId));
+
   return NextResponse.json({
-    tasks: visible,
-    plan,
-    scope: { mode: 'station', stationIds: [...permitted] },
-    notice: permitted.size ? null : 'Bạn chưa được phân công trạm nào. Liên hệ admin để được cấp trạm làm việc.',
+    tasks: tasks ?? [],
+    plan: planResult.data,
+    scope: { mode: restricted ? 'station' : 'all', stationIds },
+    notice: restricted && !stationIds.length ? 'Bạn chưa được phân công trạm nào. Liên hệ admin để được cấp trạm làm việc.' : null,
   });
 }
-
