@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
+import { getCurrentUserContext, UnauthenticatedError } from '@/infrastructure/auth/getCurrentUserContext';
 
-// Only viewport tiles are fetched. No prefetch/offline downloads, arbitrary URLs,
-// credentials or operational data are forwarded to the public tile service.
+// A same-origin fallback when the browser cannot resolve the public tile host.
+// Tile requests are authenticated so this route cannot be abused as a public proxy.
 export async function GET(request: Request, context: {params: Promise<{z:string;x:string;y:string}>}) {
+  try { await getCurrentUserContext(); } catch (error) {
+    return NextResponse.json({ error: { message: 'Bạn cần đăng nhập để tải bản đồ.' } }, { status: error instanceof UnauthenticatedError ? 401 : 500, headers: { 'Cache-Control': 'no-store' } });
+  }
   const {z,x,y}=await context.params;
   if(![z,x,y].every(value=>/^\d{1,8}$/.test(value))) return new NextResponse(null,{status:400});
   const zoom=Number(z),column=Number(x),row=Number(y);
